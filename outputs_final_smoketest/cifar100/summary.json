@@ -1,0 +1,10 @@
+{
+  "dataset": "CIFAR100",
+  "epochs": 1,
+  "best_epoch": 1,
+  "best_test_acc": 7.3,
+  "best_test_loss": 4.066617225646973,
+  "checkpoint": "outputs_final_smoketest\\cifar100\\best_checkpoint.pth",
+  "history_csv": "outputs_final_smoketest\\cifar100\\history.csv",
+  "curves_png": "outputs_final_smoketest\\cifar100\\curves.png"
+}

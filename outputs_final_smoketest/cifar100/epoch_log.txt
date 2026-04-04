@@ -1,0 +1,1 @@
+[CIFAR100] Epoch [1/1] Train Loss: 4.3571 | Train Acc: 3.25% | Test Loss: 4.0666 | Test Acc: 7.30%

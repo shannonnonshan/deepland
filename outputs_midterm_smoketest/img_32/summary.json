@@ -1,0 +1,11 @@
+{
+  "image_size": 32,
+  "epochs": 1,
+  "n_class": 5,
+  "best_epoch": 1,
+  "best_test_acc": 20.92050209205021,
+  "best_test_loss": 1.6107990686863536,
+  "checkpoint": "outputs_midterm_smoketest\\img_32\\best_checkpoint.pth",
+  "history_csv": "outputs_midterm_smoketest\\img_32\\history.csv",
+  "curves_png": "outputs_midterm_smoketest\\img_32\\curves.png"
+}

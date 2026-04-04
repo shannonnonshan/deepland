@@ -1,0 +1,1 @@
+Epoch [1/1] Train Loss: 1.6102 | Train Acc: 18.74% | Test Loss: 1.6108 | Test Acc: 20.92%
