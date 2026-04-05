@@ -1,28 +1,64 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb 10 17:25:35 2023
+import argparse
 
-@author: tuann
-"""
-from torchsummary import summary
 import torch
 from ptflops import get_model_complexity_info
-from models.modelBT1 import *
 
-with torch.cuda.device(0):
+from model_defs import NetFinal
 
-  model = NetBT1()  
-  #macs, params = get_model_complexity_info(model, (3, 32, 32), as_strings=True,
-  macs, params = get_model_complexity_info(model, (3, 224, 224), as_strings=True,
-                                           print_per_layer_stat=True, verbose=True,flops_units='GMac')
-  
-                                           #, flops_units='GMac')
-  print('{:<30}  {:<8}'.format('Computational complexity (MACs): ', macs))
-  macs1 = macs.split()
-  strmacs1=str(float(macs1[0])/2) + ' ' + macs1[1][0]
-  print('{:<30}  {:<8}'.format('Floating-point operations (FLOPs): ', strmacs1))
-  print('{:<30}  {:<8}'.format('Number of parameters: ', params))
-  
-  print('Number of model parameters (referred)): {}'.format(
-      sum([p.data.nelement() for p in model.parameters()])))
-  #summary(model, (3, 224, 224))
+
+def build_model(model_name: str):
+    name = model_name.lower()
+    if name in ("cifar10", "netbt2_cifar10"):
+        return NetFinal(n_class=10), "NetFinal-CIFAR10"
+    if name in ("cifar100", "netbt2_cifar100"):
+        return NetFinal(n_class=100), "NetFinal-CIFAR100"
+    raise ValueError(
+        "Unsupported model. Use one of: cifar10, cifar100"
+    )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Compute MACs/FLOPs/params with ptflops")
+    parser.add_argument("--model", type=str, default="cifar10", choices=["cifar10", "cifar100"])
+    parser.add_argument("--image_size", type=int, default=32)
+    parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
+    parser.add_argument("--print_per_layer", action="store_true")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    model, model_label = build_model(args.model)
+
+    use_cuda = args.device == "cuda" and torch.cuda.is_available()
+    device_label = "cuda" if use_cuda else "cpu"
+
+    with torch.cuda.device(0) if use_cuda else torch.no_grad():
+        macs, params = get_model_complexity_info(
+            model,
+            (3, args.image_size, args.image_size),
+            as_strings=True,
+            print_per_layer_stat=args.print_per_layer,
+            verbose=args.print_per_layer,
+            flops_units="GMac",
+        )
+
+    # 1 MAC ~ 2 FLOPs for common conv/linear operations.
+    mac_value, mac_unit = macs.split()
+    flops = f"{float(mac_value) * 2:.4f} GFlops" if mac_unit.startswith("G") else f"{float(mac_value) * 2:.4f}"
+
+    print("\n=== PTFlops Summary ===")
+    print(f"Model                : {model_label}")
+    print(f"Input size           : (3, {args.image_size}, {args.image_size})")
+    print(f"Device used          : {device_label}")
+    print(f"Computational MACs   : {macs}")
+    print(f"Estimated FLOPs      : {flops}")
+    print(f"Number of parameters : {params}")
+    print(
+        "Model parameter count: "
+        f"{sum(p.numel() for p in model.parameters()):,}"
+    )
+
+
+if __name__ == "__main__":
+    main()

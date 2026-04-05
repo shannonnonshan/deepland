@@ -1,0 +1,11 @@
+{
+  "image_size": 32,
+  "epochs": 3,
+  "n_class": 5,
+  "best_epoch": 3,
+  "best_test_acc": 21.2,
+  "best_test_loss": 1.6232377853393554,
+  "checkpoint": "outputs_midterm_quick\\img_32\\best_checkpoint.pth",
+  "history_csv": "outputs_midterm_quick\\img_32\\history.csv",
+  "curves_png": "outputs_midterm_quick\\img_32\\curves.png"
+}

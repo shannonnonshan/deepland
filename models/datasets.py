@@ -1,5 +1,6 @@
 import os
 import random
+from collections import Counter
 from pathlib import Path
 
 import torch
@@ -73,6 +74,20 @@ def _find_dataset_layout(data_root: str):
 	return "single", str(root), None
 
 
+def _class_counts_from_imagefolder(ds: datasets.ImageFolder):
+	idx_to_name = {idx: name for idx, name in enumerate(ds.classes)}
+	counts = Counter(target for _, target in ds.samples)
+	return {idx_to_name[idx]: counts.get(idx, 0) for idx in range(len(ds.classes))}
+
+
+def _print_dataset_summary(train_counts, eval_counts):
+	print("\n=== Dataset Summary ===")
+	print("Class\tTrain\tEval")
+	for name in sorted(train_counts.keys()):
+		print(f"{name}\t{train_counts.get(name, 0)}\t{eval_counts.get(name, 0)}")
+	print(f"Total\t{sum(train_counts.values())}\t{sum(eval_counts.values())}")
+
+
 def get_dataloaders(
 	data_root: str,
 	image_size: int,
@@ -80,6 +95,9 @@ def get_dataloaders(
 	num_workers: int = 2,
 	test_split: float = 0.2,
 	seed: int = 42,
+	expected_train_images_per_class: int = None,
+	strict_expected_train_count: bool = False,
+	print_summary: bool = False,
 ):
 	"""
 	Build train/test dataloaders from an ImageFolder dataset.
@@ -96,6 +114,29 @@ def get_dataloaders(
 		train_dataset = SafeImageFolder(train_path, transform=train_tf, is_valid_file=_is_valid_image_file)
 		test_dataset = SafeImageFolder(eval_path, transform=test_tf, is_valid_file=_is_valid_image_file)
 		class_names = train_dataset.classes
+		train_counts = _class_counts_from_imagefolder(train_dataset)
+		eval_counts = _class_counts_from_imagefolder(test_dataset)
+
+		if expected_train_images_per_class is not None:
+			wrong = {}
+			for class_name, count in train_counts.items():
+				if strict_expected_train_count and count != expected_train_images_per_class:
+					wrong[class_name] = count
+				elif (not strict_expected_train_count) and count < expected_train_images_per_class:
+					wrong[class_name] = count
+			if wrong:
+				requirement = (
+					f"exactly {expected_train_images_per_class}"
+					if strict_expected_train_count
+					else f"at least {expected_train_images_per_class}"
+				)
+				detail = ", ".join(f"{k}={v}" for k, v in sorted(wrong.items()))
+				raise ValueError(
+					f"Train set does not satisfy requirement ({requirement} images/class). Found: {detail}"
+				)
+
+		if print_summary:
+			_print_dataset_summary(train_counts, eval_counts)
 	else:
 		full_for_split = SafeImageFolder(train_path, transform=None, is_valid_file=_is_valid_image_file)
 		n_total = len(full_for_split)
@@ -111,6 +152,13 @@ def get_dataloaders(
 		test_dataset = torch.utils.data.Subset(test_dataset, test_subset.indices)
 		class_names = full_for_split.classes
 
+		if print_summary:
+			full_counts = _class_counts_from_imagefolder(full_for_split)
+			print("\n=== Dataset Summary ===")
+			print(f"Classes: {len(class_names)}")
+			print(f"Total images: {sum(full_counts.values())}")
+			print(f"Train split: {len(train_dataset)} | Eval split: {len(test_dataset)}")
+
 	n_classes = len(class_names)
 	if n_classes < 5:
 		raise ValueError(
@@ -124,6 +172,7 @@ def get_dataloaders(
 		shuffle=True,
 		num_workers=num_workers,
 		pin_memory=pin_memory,
+		drop_last=False,
 	)
 	test_loader = DataLoader(
 		test_dataset,
@@ -131,6 +180,7 @@ def get_dataloaders(
 		shuffle=False,
 		num_workers=num_workers,
 		pin_memory=pin_memory,
+		drop_last=False,
 	)
 
 	return train_loader, test_loader, class_names
